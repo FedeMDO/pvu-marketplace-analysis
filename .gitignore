@@ -13,4 +13,4 @@ yarn-error.log*
 .vscode
 
 # Output 
-plants.txt
+*.txt
