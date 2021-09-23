@@ -4,6 +4,6 @@ pvu-marketplace-analysis
 ```npm install```
 
 ## Run
-````npm start```
+```npm start```
 
 Check "output.txt"
