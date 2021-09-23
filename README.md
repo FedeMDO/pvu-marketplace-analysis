@@ -18,3 +18,5 @@ Devs changes it all the time so you should keep it up to date
 ```npm start```
 
 Check "output.txt"
+
+Initial Idea by Matias Benary <3
