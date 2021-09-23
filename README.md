@@ -8,7 +8,7 @@ ROI = NFT_PRICE_IN_PVU / PVU_PROFIT_PER_DAY
 ## Envs
 Create an .env file (check ```.env.example```)
 You can get your token inspecting the request made on PVU marketplace (F12, Network, make a request and find your token on request headers)
-You will need to enter LE to PVU Rate (```VG_PVU_COST_FROM_LE```)
+You will need to enter LE to PVU Rate (```AVG_PVU_COST_FROM_LE``` env)
 Devs changes it all the time so you should keep it up to date
 
 ## Install
