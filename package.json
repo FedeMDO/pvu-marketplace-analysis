@@ -1,0 +1,16 @@
+{
+  "name": "pvu-marketplace-analysis",
+  "version": "1.0.0",
+  "description": "Analyse PVU NFT Marketplace to find best choice",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js >  plants.txt"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "request": "^2.88.2"
+  }
+}
