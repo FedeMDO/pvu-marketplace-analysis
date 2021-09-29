@@ -22,7 +22,7 @@ const getTimeXMinutesAgo = (x) => new Date(new Date().getTime() - x * 60 * 1000)
 let execTimes = 0;
 const go = () => {
   console.log(`run nª: ${++execTimes}`);
-  const finalQuery = `https://backend-farm.plantvsundead.com/get-plants-filter-v2?offset=0&limit=10000&type=${process.env.PLANT_TYPE}${FILTER_ELEMENTS}`;
+  const finalQuery = `https://backend-farm.plantvsundead.com/get-plants-filter-v2?offset=0&limit=1000&sort=latest&type=${process.env.PLANT_TYPE}${FILTER_ELEMENTS}`;
   console.log(`querying ${finalQuery}`);
   request(
     // TODO filter by available filters (type, rarity)
@@ -41,22 +41,22 @@ const go = () => {
         )
         // Profit and ROI calculation
         .map((plant) => ({
-          id: plant.id,
           price: plant.endingPrice, // ejemplo 40
+          LE_yield: (plant.config.farm.le / plant.config.farm.hours).toFixed(3),
           farm: `${plant.config.farm.le}/${plant.config.farm.hours} (${plant.config.farm.hours / 24} days)`,
           type: plant.config.stats.type,
-          yield: (plant.config.farm.le / plant.config.farm.hours).toFixed(3),
-          roiInDays: (plant.endingPrice / ((plant.config.farm.le / plant.config.farm.hours / AVG_PVU_COST_FROM_LE) * 24)).toFixed(3),
+          roiInDays: (plant.endingPrice / ((plant.config.farm.le / plant.config.farm.hours / AVG_PVU_COST_FROM_LE) * 24)).toFixed(3), // roiInDays * dailyPVUYield = price => roiInDays = price / dailyPVUYield
+          rarity: getRarity(plant.id),
           url: `https://marketplace.plantvsundead.com/#/plant/${plant.id}`,
           date: new Date(plant.updatedAt * 1000).toISOString(),
-          rarity: getRarity(plant.id),
-        })) // x * profitPvuDiario = precio => x = precio / profitPvuDiario
+          id: plant.id,
+        })) 
         // Filter by profit, ROI and timeframes
         .filter((x) => new Date(x.date).getTime() >= getTimeXMinutesAgo(parseInt(process.env.FILTER_FROM_X_MINUTES_AGO))) // only plants posted last 5 minutes
         // Sort by ROI DESC, price ASC
         .sort(function (a, b) {
           if (a.roiInDays === b.roiInDays) {
-            // Price is only important when profits are the same
+            // Price is only important when roiInDays are the same
             return b.price - a.price;
           }
           return a.roiInDays - b.roiInDays;
@@ -74,13 +74,11 @@ const go = () => {
   );
 };
 
-// exec every 25-35 secs
 go();
 
-const min = parseInt(process.env.REPEAT_INTERVAL_SECONDS) - 5,
-  max = parseInt(process.env.REPEAT_INTERVAL_SECONDS) + 5;
-setInterval(go, Math.floor(Math.random() * (max - min + 1) + min) * 1000); //random number between 25 and 35 secs
+setInterval(go, parseInt(process.env.REPEAT_INTERVAL_SECONDS) * 1000); 
 
+// refer to https://www.servepinoy.com/use-plants-vs-undeadpvu-plant-seed-lookup-to-find-your-plants-rarity/
 const getRarity = (id) => {
   const rarity = parseInt(id.toString().substr(-4).substr(0, 2));
   if (rarity >= 0 && rarity <= 59) {
