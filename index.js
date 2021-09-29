@@ -1,46 +1,58 @@
 require('dotenv').config();
 const { exec } = require('child_process');
 
-// const { config } = require('dotenv');
 const request = require('request');
+const requiredVars = [
+  'PVU_MARKETPLACE_TOKEN',
+  'AVG_PVU_COST_FROM_LE',
+  'PLANT_TYPE',
+  'FILTER_MAX_HOURS',
+  'FILTER_MAX_PRICE',
+  'REPEAT_INTERVAL_SECONDS',
+  'FILTER_FROM_X_MINUTES_AGO',
+  'CHROME_OPEN_BEST_OPTION',
+];
 
-const TOKEN = process.env.PVU_MARKETPLACE_TOKEN;
-
+if (!requiredVars.every((varKey) => Object.keys(process.env).includes(varKey) && typeof process.env[varKey] !== 'undefined')) {
+  console.error(`please provide required environment variables\n${requiredVars.join(', \n')}\nSee .env.example file`);
+  return;
+}
+const FILTER_ELEMENTS = process.env.FILTER_ELEMENTS ? `&elements=${process.env.FILTER_ELEMENTS}` : '';
 const getTimeXMinutesAgo = (x) => new Date(new Date().getTime() - x * 60 * 1000);
 let execTimes = 0;
 const go = () => {
+  console.log(`run nª: ${++execTimes}`);
+  const finalQuery = `https://backend-farm.plantvsundead.com/get-plants-filter-v2?offset=0&limit=10000&type=${process.env.PLANT_TYPE}${FILTER_ELEMENTS}`;
+  console.log(`querying ${finalQuery}`);
   request(
     // TODO filter by available filters (type, rarity)
-    `https://backend-farm.plantvsundead.com/get-plants-filter-v2?offset=0&limit=1000&type=${process.env.PLANT_TYPE}&sort=latest&elements=${process.env.PLANT_ELEMENTS}}`,
-    { json: true, headers: { Authorization: `Bearer Token: ${TOKEN}` } },
+    finalQuery,
+    { json: true, headers: { Authorization: `Bearer Token: ${process.env.PVU_MARKETPLACE_TOKEN}` } },
     (err, res, body) => {
       if (err) {
         return console.log(err);
       }
-      console.log(`run nª: ${++execTimes}`);
       const AVG_PVU_COST_FROM_LE = process.env.AVG_PVU_COST_FROM_LE; // AVG (500 -> 550 -> 605 -> 665 -> 732) | llegamos a noviembre
       const plants = body.data;
-  
       const plantsFiltered = plants
         // Prefiltering by price, type and hours
-        // .filter(
-        //   (plant) => 
-        //   plant.endingPrice <= 30 &&
-        //   plant.config.farm.hours <= 144 // && 
-        // )
+        .filter(
+          (plant) => plant.endingPrice <= Number(process.env.FILTER_MAX_PRICE) && plant.config.farm.hours <= parseInt(process.env.FILTER_MAX_HOURS) // &&
+        )
         // Profit and ROI calculation
         .map((plant) => ({
           id: plant.id,
           price: plant.endingPrice, // ejemplo 40
-          farm: `${plant.config.farm.le}/${plant.config.farm.hours}`,
+          farm: `${plant.config.farm.le}/${plant.config.farm.hours} (${plant.config.farm.hours / 24} days)`,
           type: plant.config.stats.type,
-          profit: (plant.config.farm.le / plant.config.farm.hours).toFixed(3),
-          roiInDays: plant.endingPrice / ((plant.config.farm.le / plant.config.farm.hours / AVG_PVU_COST_FROM_LE) * 24),
-          date: new Date(plant.updatedAt * 1000).toISOString(),
+          yield: (plant.config.farm.le / plant.config.farm.hours).toFixed(3),
+          roiInDays: (plant.endingPrice / ((plant.config.farm.le / plant.config.farm.hours / AVG_PVU_COST_FROM_LE) * 24)).toFixed(3),
           url: `https://marketplace.plantvsundead.com/#/plant/${plant.id}`,
+          date: new Date(plant.updatedAt * 1000).toISOString(),
+          rarity: getRarity(plant.id),
         })) // x * profitPvuDiario = precio => x = precio / profitPvuDiario
         // Filter by profit, ROI and timeframes
-        // .filter((x) => x.roiInDays <= 81 && new Date(x.date).getTime() >= getTimeXMinutesAgo(3)) // only plants posted last 5 minutes
+        .filter((x) => new Date(x.date).getTime() >= getTimeXMinutesAgo(parseInt(process.env.FILTER_FROM_X_MINUTES_AGO))) // only plants posted last 5 minutes
         // Sort by ROI DESC, price ASC
         .sort(function (a, b) {
           if (a.roiInDays === b.roiInDays) {
@@ -49,19 +61,35 @@ const go = () => {
           }
           return a.roiInDays - b.roiInDays;
         });
-  
+
       console.log(`LE => PVU AVG RATE : ${AVG_PVU_COST_FROM_LE} - ${new Date().toISOString()}`);
       console.log(`total results: ${body.data.length} | filtered results: ${plantsFiltered.length}`);
       console.table(plantsFiltered);
       // Open best option on gchrome
       const bestOption = plantsFiltered.shift();
-      if(bestOption){
+      if (bestOption && process.env.CHROME_OPEN_BEST_OPTION === 'true') {
         exec(`start chrome ${bestOption.url}`);
       }
     }
   );
-}
+};
 
 // exec every 25-35 secs
 go();
-setInterval(go, Math.floor(Math.random() * (25 - 15 + 1) + 15) * 1000); //random number between 25 and 35 secs
+
+const min = parseInt(process.env.REPEAT_INTERVAL_SECONDS) - 5,
+  max = parseInt(process.env.REPEAT_INTERVAL_SECONDS) + 5;
+setInterval(go, Math.floor(Math.random() * (max - min + 1) + min) * 1000); //random number between 25 and 35 secs
+
+const getRarity = (id) => {
+  const rarity = parseInt(id.toString().substr(-4).substr(0, 2));
+  if (rarity >= 0 && rarity <= 59) {
+    return 'common';
+  } else if (rarity >= 60 && rarity <= 88) {
+    return 'uncommon';
+  } else if (rarity >= 89 && rarity <= 98) {
+    return 'rare';
+  } else if (rarity === 99) {
+    return 'mythic';
+  }
+};
