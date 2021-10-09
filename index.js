@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { exec } = require('child_process');
-
+let chromeTabAlreadyOpened = false;
 const request = require('request');
 const requiredVars = [
   'PVU_MARKETPLACE_TOKEN',
@@ -50,7 +50,7 @@ const go = () => {
           url: `https://marketplace.plantvsundead.com/#/plant/${plant.id}`,
           date: new Date(plant.updatedAt * 1000).toISOString(),
           id: plant.id,
-        })) 
+        }))
         // Filter by profit, ROI and timeframes
         .filter((x) => new Date(x.date).getTime() >= getTimeXMinutesAgo(parseInt(process.env.FILTER_FROM_X_MINUTES_AGO))) // only plants posted last 5 minutes
         // Sort by ROI DESC, price ASC
@@ -67,8 +67,9 @@ const go = () => {
       console.table(plantsFiltered);
       // Open best option on gchrome
       const bestOption = plantsFiltered.shift();
-      if (bestOption && process.env.CHROME_OPEN_BEST_OPTION === 'true') {
+      if (bestOption && process.env.CHROME_OPEN_BEST_OPTION === 'true' && !chromeTabAlreadyOpened) {
         exec(`start chrome ${bestOption.url}`);
+        chromeTabAlreadyOpened = true;
       }
     }
   );
@@ -76,7 +77,7 @@ const go = () => {
 
 go();
 
-setInterval(go, parseInt(process.env.REPEAT_INTERVAL_SECONDS) * 1000); 
+setInterval(go, parseInt(process.env.REPEAT_INTERVAL_SECONDS) * 1000);
 
 // refer to https://www.servepinoy.com/use-plants-vs-undeadpvu-plant-seed-lookup-to-find-your-plants-rarity/
 const getRarity = (id) => {
